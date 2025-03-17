@@ -20,12 +20,36 @@
 
         canvas { display: block; background: rgba(0, 0, 0, 0.2); }
 
+        /* Botones táctiles */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            font-size: 20px;
+            padding: 10px 20px;
+            background: #ffcc00;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
     <audio id="impactSound" src="impact.mp3"></audio>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Controles para móvil -->
+    <div class="controls">
+        <button id="leftBtn">⬅️</button>
+        <button id="shootBtn">🔥</button>
+        <button id="rightBtn">➡️</button>
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -41,6 +65,8 @@
 
         let projectiles = [];
         let asteroids = [];
+        let shipSpeed = 7;
+        let shipDirection = 0;
 
         const ship = {
             x: canvas.width / 2 - 25,
@@ -49,15 +75,31 @@
             height: 50
         };
 
+        function shoot() {
+            projectiles.push({
+                x: ship.x + 20,
+                y: ship.y,
+                speed: 5
+            });
+        }
+
         document.addEventListener("keydown", (event) => {
-            if (event.code === "Space") {
-                projectiles.push({
-                    x: ship.x + 20,
-                    y: ship.y,
-                    speed: 5
-                });
-            }
+            if (event.code === "ArrowLeft") shipDirection = -1;
+            if (event.code === "ArrowRight") shipDirection = 1;
+            if (event.code === "Space") shoot();
         });
+
+        document.addEventListener("keyup", (event) => {
+            if (event.code === "ArrowLeft" || event.code === "ArrowRight") shipDirection = 0;
+        });
+
+        // Controles táctiles
+        document.getElementById("leftBtn").addEventListener("mousedown", () => { shipDirection = -1; });
+        document.getElementById("rightBtn").addEventListener("mousedown", () => { shipDirection = 1; });
+        document.getElementById("shootBtn").addEventListener("click", shoot);
+
+        document.getElementById("leftBtn").addEventListener("mouseup", () => { shipDirection = 0; });
+        document.getElementById("rightBtn").addEventListener("mouseup", () => { shipDirection = 0; });
 
         function createAsteroid() {
             let side = Math.floor(Math.random() * 4);
@@ -96,18 +138,19 @@
         setInterval(createAsteroid, 1000);
 
         function update() {
-            // Mover proyectiles
+            ship.x += shipSpeed * shipDirection;
+            if (ship.x < 0) ship.x = 0;
+            if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
+
             for (let i = 0; i < projectiles.length; i++) {
                 projectiles[i].y -= projectiles[i].speed;
                 if (projectiles[i].y < 0) projectiles.splice(i, 1);
             }
 
-            // Mover asteroides
             for (let i = 0; i < asteroids.length; i++) {
                 asteroids[i].x += asteroids[i].speedX;
                 asteroids[i].y += asteroids[i].speedY;
 
-                // Colisión con la nave (Game Over)
                 if (
                     asteroids[i].x < ship.x + ship.width &&
                     asteroids[i].x + asteroids[i].width > ship.x &&
@@ -118,7 +161,6 @@
                     document.location.reload();
                 }
 
-                // Colisión con proyectiles
                 for (let j = 0; j < projectiles.length; j++) {
                     if (
                         projectiles[j].x < asteroids[i].x + asteroids[i].width &&
@@ -137,26 +179,14 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Dibujar la nave (Andrea)
             ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
-
-            // Dibujar proyectiles (Texto "QUIERO DINERO")
             ctx.fillStyle = "yellow";
             ctx.font = "16px Arial";
             for (let i = 0; i < projectiles.length; i++) {
                 ctx.fillText("QUIERO DINERO", projectiles[i].x, projectiles[i].y);
             }
-
-            // Dibujar asteroides (Alex)
             for (let i = 0; i < asteroids.length; i++) {
-                ctx.drawImage(
-                    asteroidImg,
-                    asteroids[i].x,
-                    asteroids[i].y,
-                    asteroids[i].width,
-                    asteroids[i].height
-                );
+                ctx.drawImage(asteroidImg, asteroids[i].x, asteroids[i].y, asteroids[i].width, asteroids[i].height);
             }
         }
 
