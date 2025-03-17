@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andrea Asteroids</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background: linear-gradient(45deg, #ff0000, #ff7300, #fffa00, #00ff00, #00ffff, #0000ff, #ff00ff);
+            background-size: 400% 400%;
+            animation: bg-animation 10s infinite alternate linear;
+        }
+
+        @keyframes bg-animation {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        canvas { display: block; background: rgba(0, 0, 0, 0.2); }
+
+    </style>
+</head>
+<body>
+
+    <audio id="impactSound" src="impact.mp3"></audio>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const shipImg = new Image();
+        shipImg.src = "andrea.png";  // La nave de Andrea
+
+        const asteroidImg = new Image();
+        asteroidImg.src = "alex.png"; // Asteroides (Alex)
+
+        let projectiles = [];
+        let asteroids = [];
+
+        const ship = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 100,
+            width: 50,
+            height: 50
+        };
+
+        document.addEventListener("keydown", (event) => {
+            if (event.code === "Space") {
+                projectiles.push({
+                    x: ship.x + 20,
+                    y: ship.y,
+                    speed: 5
+                });
+            }
+        });
+
+        function createAsteroid() {
+            let side = Math.floor(Math.random() * 4);
+            let x, y, speedX, speedY;
+
+            switch (side) {
+                case 0: // Arriba
+                    x = Math.random() * canvas.width;
+                    y = -50;
+                    speedX = (canvas.width / 2 - x) / 100;
+                    speedY = 2;
+                    break;
+                case 1: // Izquierda
+                    x = -50;
+                    y = Math.random() * canvas.height;
+                    speedX = 2;
+                    speedY = (canvas.height - y) / 100;
+                    break;
+                case 2: // Derecha
+                    x = canvas.width + 50;
+                    y = Math.random() * canvas.height;
+                    speedX = -2;
+                    speedY = (canvas.height - y) / 100;
+                    break;
+                case 3: // Abajo
+                    x = Math.random() * canvas.width;
+                    y = canvas.height + 50;
+                    speedX = (canvas.width / 2 - x) / 100;
+                    speedY = -2;
+                    break;
+            }
+
+            asteroids.push({ x, y, speedX, speedY, width: 50, height: 50 });
+        }
+
+        setInterval(createAsteroid, 1000);
+
+        function update() {
+            // Mover proyectiles
+            for (let i = 0; i < projectiles.length; i++) {
+                projectiles[i].y -= projectiles[i].speed;
+                if (projectiles[i].y < 0) projectiles.splice(i, 1);
+            }
+
+            // Mover asteroides
+            for (let i = 0; i < asteroids.length; i++) {
+                asteroids[i].x += asteroids[i].speedX;
+                asteroids[i].y += asteroids[i].speedY;
+
+                // Colisión con la nave (Game Over)
+                if (
+                    asteroids[i].x < ship.x + ship.width &&
+                    asteroids[i].x + asteroids[i].width > ship.x &&
+                    asteroids[i].y < ship.y + ship.height &&
+                    asteroids[i].y + asteroids[i].height > ship.y
+                ) {
+                    alert("¡Game Over! Andrea fue impactada 😵");
+                    document.location.reload();
+                }
+
+                // Colisión con proyectiles
+                for (let j = 0; j < projectiles.length; j++) {
+                    if (
+                        projectiles[j].x < asteroids[i].x + asteroids[i].width &&
+                        projectiles[j].x + 10 > asteroids[i].x &&
+                        projectiles[j].y < asteroids[i].y + asteroids[i].height &&
+                        projectiles[j].y + 10 > asteroids[i].y
+                    ) {
+                        document.getElementById("impactSound").play();
+                        asteroids.splice(i, 1);
+                        projectiles.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dibujar la nave (Andrea)
+            ctx.drawImage(shipImg, ship.x, ship.y, ship.width, ship.height);
+
+            // Dibujar proyectiles (Texto "QUIERO DINERO")
+            ctx.fillStyle = "yellow";
+            ctx.font = "16px Arial";
+            for (let i = 0; i < projectiles.length; i++) {
+                ctx.fillText("QUIERO DINERO", projectiles[i].x, projectiles[i].y);
+            }
+
+            // Dibujar asteroides (Alex)
+            for (let i = 0; i < asteroids.length; i++) {
+                ctx.drawImage(
+                    asteroidImg,
+                    asteroids[i].x,
+                    asteroids[i].y,
+                    asteroids[i].width,
+                    asteroids[i].height
+                );
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
