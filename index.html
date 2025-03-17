@@ -67,6 +67,7 @@
         let asteroids = [];
         let shipSpeed = 7;
         let shipDirection = 0;
+        let gameOver = false; // Para evitar múltiples alertas de "Game Over"
 
         const ship = {
             x: canvas.width / 2 - 25,
@@ -93,13 +94,17 @@
             if (event.code === "ArrowLeft" || event.code === "ArrowRight") shipDirection = 0;
         });
 
-        // Controles táctiles
-        document.getElementById("leftBtn").addEventListener("mousedown", () => { shipDirection = -1; });
-        document.getElementById("rightBtn").addEventListener("mousedown", () => { shipDirection = 1; });
-        document.getElementById("shootBtn").addEventListener("click", shoot);
+        // Controles táctiles (Solución para Safari y Chrome en móviles)
+        function startMovingLeft() { shipDirection = -1; }
+        function startMovingRight() { shipDirection = 1; }
+        function stopMoving() { shipDirection = 0; }
 
-        document.getElementById("leftBtn").addEventListener("mouseup", () => { shipDirection = 0; });
-        document.getElementById("rightBtn").addEventListener("mouseup", () => { shipDirection = 0; });
+        document.getElementById("leftBtn").addEventListener("touchstart", startMovingLeft);
+        document.getElementById("rightBtn").addEventListener("touchstart", startMovingRight);
+        document.getElementById("shootBtn").addEventListener("touchstart", shoot);
+
+        document.getElementById("leftBtn").addEventListener("touchend", stopMoving);
+        document.getElementById("rightBtn").addEventListener("touchend", stopMoving);
 
         function createAsteroid() {
             let side = Math.floor(Math.random() * 4);
@@ -138,6 +143,8 @@
         setInterval(createAsteroid, 1000);
 
         function update() {
+            if (gameOver) return;
+
             ship.x += shipSpeed * shipDirection;
             if (ship.x < 0) ship.x = 0;
             if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
@@ -157,8 +164,11 @@
                     asteroids[i].y < ship.y + ship.height &&
                     asteroids[i].y + asteroids[i].height > ship.y
                 ) {
-                    alert("¡Game Over! Andrea fue impactada 😵");
-                    document.location.reload();
+                    gameOver = true;
+                    setTimeout(() => {
+                        alert("¡Game Over! Andrea fue impactada 😵");
+                        location.reload(); // Reinicia el juego
+                    }, 100);
                 }
 
                 for (let j = 0; j < projectiles.length; j++) {
