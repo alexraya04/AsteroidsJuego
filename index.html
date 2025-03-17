@@ -20,36 +20,31 @@
 
         canvas { display: block; background: rgba(0, 0, 0, 0.2); }
 
-        /* Botones táctiles */
-        .controls {
+        /* Mensaje de ganar o perder */
+        #gameResult {
+            display: none;
             position: fixed;
-            bottom: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 30px;
+            color: white;
+            font-weight: bold;
         }
-        button {
-            font-size: 20px;
-            padding: 10px 20px;
-            background: #ffcc00;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+
+        #gameResult img {
+            width: 300px;
+            height: auto;
         }
+
     </style>
 </head>
 <body>
 
     <audio id="impactSound" src="impact.mp3"></audio>
     <canvas id="gameCanvas"></canvas>
-
-    <!-- Controles para móvil -->
-    <div class="controls">
-        <button id="leftBtn">⬅️</button>
-        <button id="shootBtn">🔥</button>
-        <button id="rightBtn">➡️</button>
-    </div>
+    <div id="gameResult"></div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
@@ -67,7 +62,9 @@
         let asteroids = [];
         let shipSpeed = 7;
         let shipDirection = 0;
-        let gameOver = false; // Para evitar múltiples alertas de "Game Over"
+        let destroyedAsteroids = 0;
+        let gameOver = false;
+        let gameStartTime = Date.now();
 
         const ship = {
             x: canvas.width / 2 - 25,
@@ -77,11 +74,7 @@
         };
 
         function shoot() {
-            projectiles.push({
-                x: ship.x + 20,
-                y: ship.y,
-                speed: 5
-            });
+            projectiles.push({ x: ship.x + 20, y: ship.y, speed: 5 });
         }
 
         document.addEventListener("keydown", (event) => {
@@ -94,50 +87,12 @@
             if (event.code === "ArrowLeft" || event.code === "ArrowRight") shipDirection = 0;
         });
 
-        // Controles táctiles (Solución para Safari y Chrome en móviles)
-        function startMovingLeft() { shipDirection = -1; }
-        function startMovingRight() { shipDirection = 1; }
-        function stopMoving() { shipDirection = 0; }
-
-        document.getElementById("leftBtn").addEventListener("touchstart", startMovingLeft);
-        document.getElementById("rightBtn").addEventListener("touchstart", startMovingRight);
-        document.getElementById("shootBtn").addEventListener("touchstart", shoot);
-
-        document.getElementById("leftBtn").addEventListener("touchend", stopMoving);
-        document.getElementById("rightBtn").addEventListener("touchend", stopMoving);
-
         function createAsteroid() {
-            let side = Math.floor(Math.random() * 4);
-            let x, y, speedX, speedY;
+            let x = Math.random() * canvas.width;
+            let y = Math.random() * (canvas.height / 2) - 50; // Solo aparecen en la mitad superior
+            let speedY = 2 + Math.random() * 2; // Velocidad aleatoria
 
-            switch (side) {
-                case 0: // Arriba
-                    x = Math.random() * canvas.width;
-                    y = -50;
-                    speedX = (canvas.width / 2 - x) / 100;
-                    speedY = 2;
-                    break;
-                case 1: // Izquierda
-                    x = -50;
-                    y = Math.random() * canvas.height;
-                    speedX = 2;
-                    speedY = (canvas.height - y) / 100;
-                    break;
-                case 2: // Derecha
-                    x = canvas.width + 50;
-                    y = Math.random() * canvas.height;
-                    speedX = -2;
-                    speedY = (canvas.height - y) / 100;
-                    break;
-                case 3: // Abajo
-                    x = Math.random() * canvas.width;
-                    y = canvas.height + 50;
-                    speedX = (canvas.width / 2 - x) / 100;
-                    speedY = -2;
-                    break;
-            }
-
-            asteroids.push({ x, y, speedX, speedY, width: 50, height: 50 });
+            asteroids.push({ x, y, speedY, width: 50, height: 50 });
         }
 
         setInterval(createAsteroid, 1000);
@@ -145,32 +100,39 @@
         function update() {
             if (gameOver) return;
 
+            // Verificar si pasaron más de 45 segundos
+            let elapsedTime = (Date.now() - gameStartTime) / 1000;
+            if (elapsedTime > 45) {
+                endGame(false);
+                return;
+            }
+
             ship.x += shipSpeed * shipDirection;
             if (ship.x < 0) ship.x = 0;
             if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
 
+            // Mover proyectiles
             for (let i = 0; i < projectiles.length; i++) {
                 projectiles[i].y -= projectiles[i].speed;
                 if (projectiles[i].y < 0) projectiles.splice(i, 1);
             }
 
+            // Mover asteroides
             for (let i = 0; i < asteroids.length; i++) {
-                asteroids[i].x += asteroids[i].speedX;
                 asteroids[i].y += asteroids[i].speedY;
 
+                // Colisión con la nave (Game Over)
                 if (
                     asteroids[i].x < ship.x + ship.width &&
                     asteroids[i].x + asteroids[i].width > ship.x &&
                     asteroids[i].y < ship.y + ship.height &&
                     asteroids[i].y + asteroids[i].height > ship.y
                 ) {
-                    gameOver = true;
-                    setTimeout(() => {
-                        alert("¡Game Over! Andrea fue impactada 😵");
-                        location.reload(); // Reinicia el juego
-                    }, 100);
+                    endGame(false);
+                    return;
                 }
 
+                // Colisión con proyectiles
                 for (let j = 0; j < projectiles.length; j++) {
                     if (
                         projectiles[j].x < asteroids[i].x + asteroids[i].width &&
@@ -181,6 +143,12 @@
                         document.getElementById("impactSound").play();
                         asteroids.splice(i, 1);
                         projectiles.splice(j, 1);
+                        destroyedAsteroids++;
+
+                        // Si destruyó 10 asteroides, gana
+                        if (destroyedAsteroids >= 10) {
+                            endGame(true);
+                        }
                         break;
                     }
                 }
@@ -198,6 +166,22 @@
             for (let i = 0; i < asteroids.length; i++) {
                 ctx.drawImage(asteroidImg, asteroids[i].x, asteroids[i].y, asteroids[i].width, asteroids[i].height);
             }
+        }
+
+        function endGame(won) {
+            gameOver = true;
+            let resultDiv = document.getElementById("gameResult");
+            resultDiv.style.display = "block";
+
+            if (won) {
+                resultDiv.innerHTML = `<p>¡Felicidades! Ganaste 🎉</p><img src="andrea.png" style="filter: hue-rotate(180deg);">`;
+            } else {
+                resultDiv.innerHTML = `<p>¡Game Over! 😢</p><img src="andrea.png" style="filter: grayscale(100%);">`;
+            }
+
+            setTimeout(() => {
+                location.reload(); // Reiniciar juego después de mostrar el resultado
+            }, 3000);
         }
 
         function gameLoop() {
